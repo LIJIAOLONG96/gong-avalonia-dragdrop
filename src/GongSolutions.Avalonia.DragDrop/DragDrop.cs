@@ -217,6 +217,15 @@ public static class DragDrop
             return;
         }
 
+        var properties = args.GetCurrentPoint(control).Properties;
+        if (!properties.IsLeftButtonPressed
+            && (!GetCanDragWithMouseRightButton(control) || !properties.IsRightButtonPressed))
+        {
+            session.ActiveDragInfo = null;
+            session.TriggerEvent = null;
+            return;
+        }
+
         var position = args.GetPosition(control);
         var delta = position - session.ActiveDragInfo.DragStartPosition;
         if (Math.Abs(delta.X) < GetMinimumHorizontalDragDistance(control)
@@ -281,6 +290,11 @@ public static class DragDrop
             session.ActiveDragInfo = null;
             session.TriggerEvent = null;
         }
+    }
+
+    private static void OnTopLevelPointerReleased(object? sender, PointerReleasedEventArgs args)
+    {
+        OnPointerReleased(sender, args);
     }
 
     private static void OnDragOver(object? sender, DragEventArgs args)
@@ -512,7 +526,11 @@ public static class DragDrop
 
     private static DragSession GetSession(Control control)
     {
-        return Sessions.GetValue(TopLevel.GetTopLevel(control) ?? control, static _ => new DragSession());
+        return Sessions.GetValue(TopLevel.GetTopLevel(control) ?? control, static owner =>
+        {
+            owner.AddHandler(InputElement.PointerReleasedEvent, OnTopLevelPointerReleased, RoutingStrategies.Bubble, true);
+            return new DragSession();
+        });
     }
 
     private static DragSession GetSession(IDataTransfer transfer, Control fallback)
